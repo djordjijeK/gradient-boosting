@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from gbm import DecisionTree
+from gbm.tree import DecisionTree
 from helpers import logistic_grad_hessian
 
 

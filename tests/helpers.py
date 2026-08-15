@@ -1,6 +1,17 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
+
+DATA_DIR = Path(__file__).parent / "data"
+
+
+def load_dataset(filename):
+    """Return (X, y) from tests/data/<filename>; last column is the target."""
+    table = np.loadtxt(DATA_DIR / filename, delimiter=",", skiprows=1)
+
+    return table[:, :-1], table[:, -1]
 
 
 def logistic_grad_hessian(y, p):
