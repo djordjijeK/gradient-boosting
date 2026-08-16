@@ -107,3 +107,81 @@ class TestPredictContract:
 
         assert margins.min() < 0.0
         assert margins.max() > 1.0
+
+
+class TestMulticlass:
+    """Three or more labels: one raw score, and so one tree, per class per round."""
+
+    def test_the_label_count_alone_selects_the_softmax_loss(self, multiclass_data):
+        X_train, _, y_train, _ = multiclass_data
+
+        model = GradientBoostingClassifier(n_estimators=2).fit(X_train, y_train)
+
+        assert model._loss.n_outputs == 3
+        assert all(len(round_trees) == 3 for round_trees in model._trees)
+
+
+    def test_two_labels_still_boost_a_single_logistic_score(self, binary_data):
+        X_train, _, y_train, _ = binary_data
+
+        model = GradientBoostingClassifier(n_estimators=2).fit(X_train, y_train)
+
+        assert model._loss.n_outputs == 1
+        assert all(len(round_trees) == 1 for round_trees in model._trees)
+
+
+    def test_probabilities_are_one_column_per_class_summing_to_one(self, multiclass_data):
+        X_train, X_test, y_train, _ = multiclass_data
+
+        proba = GradientBoostingClassifier(n_estimators=5).fit(
+            X_train, y_train
+        ).predict_proba(X_test)
+
+        assert proba.shape == (len(X_test), 3)
+        assert proba.sum(axis=1) == pytest.approx(np.ones(len(X_test)))
+
+
+    def test_predict_returns_the_most_probable_class(self, multiclass_data):
+        X_train, X_test, y_train, _ = multiclass_data
+        model = GradientBoostingClassifier(n_estimators=10).fit(X_train, y_train)
+
+        assert np.array_equal(
+            model.predict(X_test), np.argmax(model.predict_proba(X_test), axis=1)
+        )
+
+
+    def test_output_margin_returns_one_score_per_class(self, multiclass_data):
+        X_train, X_test, y_train, _ = multiclass_data
+        model = GradientBoostingClassifier(n_estimators=10).fit(X_train, y_train)
+
+        assert model.predict(X_test, output_margin=True).shape == (len(X_test), 3)
+
+
+    def test_labels_come_back_as_they_went_in(self, multiclass_data):
+        X_train, X_test, y_train, _ = multiclass_data
+        labels = np.array(["b", "a", "c"])[y_train.astype(int)]
+
+        predictions = GradientBoostingClassifier(n_estimators=5).fit(
+            X_train, labels
+        ).predict(X_test)
+
+        assert set(predictions) <= {"a", "b", "c"}
+
+
+    def test_more_rounds_reduce_the_training_error(self, multiclass_data):
+        X_train, _, y_train, _ = multiclass_data
+
+        errors = [
+            float(-np.mean(np.log(
+                GradientBoostingClassifier(n_estimators=n).fit(X_train, y_train)
+                .predict_proba(X_train)[np.arange(len(y_train)), y_train.astype(int)]
+            )))
+            for n in (1, 5, 25)
+        ]
+
+        assert errors[0] > errors[1] > errors[2]
+
+
+    def test_a_single_class_is_rejected(self):
+        with pytest.raises(ValueError, match="at least two classes"):
+            GradientBoostingClassifier().fit(X, np.zeros(len(X)))

@@ -35,3 +35,11 @@ def binary_data():
     X, y = load_dataset("breast_cancer.csv")
 
     return train_test_split(X, y, test_size=0.3, random_state=0, stratify=y)
+
+
+@pytest.fixture(scope="session")
+def multiclass_data():
+    """Wine, 178 rows, three unbalanced classes, stratified 70/30."""
+    X, y = load_dataset("wine.csv")
+
+    return train_test_split(X, y, test_size=0.3, random_state=0, stratify=y)

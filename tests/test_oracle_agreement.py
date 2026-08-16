@@ -61,6 +61,23 @@ def classifiers(binary_data):
     )
 
 
+@pytest.fixture(scope="module")
+def multiclass_classifiers(multiclass_data):
+    X_train, _, y_train, _ = multiclass_data
+
+    return (
+        GradientBoostingClassifier(gamma=0.0, **SHARED, **BOOSTING).fit(X_train, y_train),
+        xgb.XGBClassifier(
+            objective="multi:softprob", tree_method="exact",
+            gamma=0.0, reg_alpha=0.0, n_jobs=1, **SHARED, **BOOSTING,
+        ).fit(X_train, y_train),
+        lgb.LGBMClassifier(
+            min_child_samples=1, min_split_gain=0.0, n_jobs=1, verbose=-1,
+            **SHARED, **BOOSTING,
+        ).fit(X_train, y_train),
+    )
+
+
 class TestRegression:
 
     def test_training_error_matches_xgboost(self, regression_data, regressors):
@@ -135,3 +152,47 @@ class TestClassification:
 
         assert np.corrcoef(mine, xgboost.predict_proba(X_test)[:, 1])[0, 1] > 0.999
         assert np.corrcoef(mine, lightgbm.predict_proba(X_test)[:, 1])[0, 1] > 0.99
+
+
+class TestMulticlassClassification:
+    """One-tree-per-class softmax against the same two oracles.
+
+    XGBoost boosts each class against 2 p (1 - p), twice the diagonal of the
+    true hessian, and these tolerances only hold because we do the same; with
+    the bare p (1 - p) the leaf steps double and probability agreement falls
+    from 0.9997 to 0.993.
+    """
+
+    def test_held_out_accuracy_matches_xgboost(self, multiclass_data, multiclass_classifiers):
+        _, X_test, _, y_test = multiclass_data
+        ours, xgboost, _ = multiclass_classifiers
+
+        assert (ours.predict(X_test) == y_test).mean() == pytest.approx(
+            (xgboost.predict(X_test) == y_test).mean(), abs=0.02
+        )
+
+
+    def test_every_held_out_label_agrees_with_xgboost(self, multiclass_data, multiclass_classifiers):
+        _, X_test, _, _ = multiclass_data
+        ours, xgboost, _ = multiclass_classifiers
+
+        assert (ours.predict(X_test) == xgboost.predict(X_test)).mean() >= 0.98
+
+
+    def test_held_out_accuracy_is_competitive_with_lightgbm(self, multiclass_data, multiclass_classifiers):
+        _, X_test, _, y_test = multiclass_data
+        ours, _, lightgbm = multiclass_classifiers
+
+        assert (ours.predict(X_test) == y_test).mean() == pytest.approx(
+            (lightgbm.predict(X_test) == y_test).mean(), abs=0.05
+        )
+
+
+    def test_every_class_probability_tracks_both_oracles(self, multiclass_data, multiclass_classifiers):
+        _, X_test, _, _ = multiclass_data
+        ours, xgboost, lightgbm = multiclass_classifiers
+
+        mine = ours.predict_proba(X_test)
+
+        assert np.corrcoef(mine.ravel(), xgboost.predict_proba(X_test).ravel())[0, 1] > 0.999
+        assert np.corrcoef(mine.ravel(), lightgbm.predict_proba(X_test).ravel())[0, 1] > 0.99
