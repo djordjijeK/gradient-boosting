@@ -101,19 +101,6 @@ class LogisticLoss(Loss):
 
 
 class SoftmaxLoss(Loss):
-    """Cross-entropy over one raw score per class.
-
-    The generalisation is exact at every step. The base score is the log prior
-    of each class, which for two classes is the log odds LogisticLoss uses up to
-    a constant shift that softmax ignores. The gradient is again the probability
-    minus the target, the target now being a one-hot row.
-
-    Only the hessian has a choice in it. The true second derivative is a K x K
-    matrix per row and a tree can carry a diagonal, so the off-diagonal coupling
-    between classes is dropped; following XGBoost we boost against twice the
-    diagonal, 2 p (1 - p), which halves the leaf step and keeps the trees from
-    overshooting on the strength of a curvature they only half know.
-    """
 
     def __init__(self, n_classes: int) -> None:
         if n_classes < 2:
@@ -157,7 +144,6 @@ class SoftmaxLoss(Loss):
 
     @staticmethod
     def _probabilities(raw: np.ndarray) -> np.ndarray:
-        """Softmax, shifted by the row maximum so the exponential cannot overflow."""
         exponentials = np.exp(raw - raw.max(axis=1, keepdims=True))
 
         return exponentials / exponentials.sum(axis=1, keepdims=True)

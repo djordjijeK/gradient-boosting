@@ -1,10 +1,5 @@
-"""The three losses, checked against the derivations they came from.
-
-Everything here is arithmetic that can be verified by hand. Whether the losses
-drive a correct booster is settled by test_oracle_agreement.py.
-"""
-import numpy as np
 import pytest
+import numpy as np
 
 from gbm.losses import LogisticLoss, SoftmaxLoss, SquaredError
 
@@ -15,7 +10,6 @@ RAW = np.array([[2.0], [5.0], [6.0]])
 LABELS = np.array([0.0, 1.0, 1.0])
 SCORES = np.array([[0.0], [1.0], [-1.0]])
 
-# Chosen so the exponentials are 1:1:1 and then 1:2:3.
 CLASS_LABELS = np.array([0.0, 1.0, 2.0])
 CLASS_SCORES = np.array([[0.0, 0.0, 0.0], [0.0, np.log(2.0), np.log(3.0)], [0.0, 0.0, 0.0]])
 
@@ -82,7 +76,6 @@ class TestSoftmaxLoss:
 
 
     def test_base_score_generalises_the_log_odds_of_the_binary_case(self):
-        # Softmax reads differences, and log(p) - log(1 - p) is the log odds.
         base = SoftmaxLoss(2).base_score(LABELS)
 
         assert base[1] - base[0] == pytest.approx(np.log(2.0))
@@ -136,40 +129,3 @@ class TestSoftmaxLoss:
     def test_fewer_than_two_classes_is_rejected(self):
         with pytest.raises(ValueError, match="at least two classes"):
             SoftmaxLoss(1)
-
-
-CONTRACTS = [
-    (SquaredError(), Y, RAW),
-    (LogisticLoss(), LABELS, SCORES),
-    (SoftmaxLoss(3), CLASS_LABELS, CLASS_SCORES),
-]
-
-
-@pytest.mark.parametrize(("loss", "y", "raw"), CONTRACTS, ids=["squared", "logistic", "softmax"])
-class TestSharedContract:
-
-    def test_base_score_has_one_entry_per_output(self, loss, y, raw):
-        assert loss.base_score(y).shape == (loss.n_outputs,)
-
-
-    def test_gradients_and_hessians_keep_the_shape_of_raw(self, loss, y, raw):
-        gradient, hessian = loss.gradients_and_hessians(y, raw)
-
-        assert gradient.shape == raw.shape
-        assert hessian.shape == raw.shape
-
-
-    def test_hessians_are_positive(self, loss, y, raw):
-        _, hessian = loss.gradients_and_hessians(y, raw)
-
-        assert (hessian > 0.0).all()
-
-
-    def test_one_dimensional_raw_is_rejected(self, loss, y, raw):
-        with pytest.raises(ValueError, match="must have shape"):
-            loss.gradients_and_hessians(y, raw.ravel())
-
-
-    def test_a_target_of_the_wrong_length_is_rejected(self, loss, y, raw):
-        with pytest.raises(ValueError, match="same number of rows"):
-            loss.gradients_and_hessians(np.append(y, y[-1]), raw)

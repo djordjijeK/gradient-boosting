@@ -12,7 +12,8 @@ requires-python = ">=3.9"
 dependencies = ["numpy"]
 
 [project.optional-dependencies]
-dev = ["pytest", "xgboost", "lightgbm", "scikit-learn"]
+dev = ["pytest", "scikit-learn"]
+examples = ["scikit-learn", "xgboost", "lightgbm"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

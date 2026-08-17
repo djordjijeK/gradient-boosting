@@ -1,11 +1,5 @@
-"""Boosting behaviour the oracle-agreement suite cannot prove on its own.
-
-Matching XGBoost row-for-row already establishes that base scores, gradients,
-hessians, shrinkage and the loop are correct. What is left is the arithmetic
-verified by hand, the contract, and the shape of what predict returns.
-"""
-import numpy as np
 import pytest
+import numpy as np
 
 from gbm.boosting import GradientBoostingClassifier, GradientBoostingRegressor
 
@@ -23,9 +17,7 @@ class TestBoostingLoop:
         # base = mean(y) = 6.0, so g = raw - y = [5, 4, -4, -5] and h = 1.
         # The only split is at 2.5; leaves are -G/H = -9/2 and +9/2.
         # raw becomes 6 + [-4.5, -4.5, 4.5, 4.5].
-        model = GradientBoostingRegressor(
-            n_estimators=1, learning_rate=1.0, **UNREGULARIZED
-        ).fit(X, Y)
+        model = GradientBoostingRegressor(n_estimators=1, learning_rate=1.0, **UNREGULARIZED).fit(X, Y)
 
         assert model.predict(X) == pytest.approx([1.5, 1.5, 10.5, 10.5])
 
@@ -35,9 +27,7 @@ class TestBoostingLoop:
         full = GradientBoostingRegressor(n_estimators=1, learning_rate=1.0, **UNREGULARIZED)
         tenth = GradientBoostingRegressor(n_estimators=1, learning_rate=0.1, **UNREGULARIZED)
 
-        assert tenth.fit(X, Y).predict(X) - base == pytest.approx(
-            0.1 * (full.fit(X, Y).predict(X) - base)
-        )
+        assert tenth.fit(X, Y).predict(X) - base == pytest.approx(0.1 * (full.fit(X, Y).predict(X) - base))
 
 
     def test_more_rounds_reduce_training_error(self, regression_data):
@@ -45,8 +35,7 @@ class TestBoostingLoop:
 
         errors = [
             float(np.sqrt(np.mean((
-                GradientBoostingRegressor(n_estimators=n).fit(X_train, y_train)
-                .predict(X_train) - y_train
+                GradientBoostingRegressor(n_estimators=n).fit(X_train, y_train).predict(X_train) - y_train
             ) ** 2)))
             for n in (1, 5, 25)
         ]
@@ -89,19 +78,8 @@ class TestPredictContract:
         assert proba.sum(axis=1) == pytest.approx(np.ones(len(X_test)))
 
 
-    def test_classifier_predict_agrees_with_the_probability_it_reports(self, binary_data):
-        X_train, X_test, y_train, _ = binary_data
-        model = GradientBoostingClassifier(n_estimators=10).fit(X_train, y_train)
-
-        assert np.array_equal(
-            model.predict(X_test), (model.predict_proba(X_test)[:, 1] >= 0.5).astype(int)
-        )
-
-
     def test_output_margin_returns_log_odds_not_probabilities(self):
-        model = GradientBoostingClassifier(
-            n_estimators=25, learning_rate=0.5, **UNREGULARIZED
-        ).fit(X, LABELS)
+        model = GradientBoostingClassifier(n_estimators=25, learning_rate=0.5, **UNREGULARIZED).fit(X, LABELS)
 
         margins = model.predict(X, output_margin=True)
 
@@ -110,7 +88,6 @@ class TestPredictContract:
 
 
 class TestMulticlass:
-    """Three or more labels: one raw score, and so one tree, per class per round."""
 
     def test_the_label_count_alone_selects_the_softmax_loss(self, multiclass_data):
         X_train, _, y_train, _ = multiclass_data

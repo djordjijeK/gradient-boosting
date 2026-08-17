@@ -7,7 +7,13 @@ from numpy.typing import ArrayLike
 
 class DecisionTreeNode:
 
-    def __init__(self, value, is_leaf=False, best_feature_index=None, best_threshold=None):
+    def __init__(
+        self, 
+        value: float, 
+        is_leaf: bool = False, 
+        best_feature_index: int | None = None, 
+        best_threshold: float | None =None
+    ):
         self._value = value
         self._is_leaf = is_leaf
         self._best_feature_index = best_feature_index
@@ -27,7 +33,7 @@ class DecisionTree:
         min_samples_leaf: int = 1,
         min_samples_split: int = 2,
         reg_lambda: float = 0.0,
-    ) -> None:
+    ):
         self._max_depth = max_depth
         self._gamma = gamma
         self._min_child_weight = min_child_weight
@@ -118,7 +124,7 @@ class DecisionTree:
         return root
 
 
-    def _best_split(self, x: np.ndarray, g: np.ndarray, h: np.ndarray) -> tuple[int, float, float] | tuple[None, None, None]:
+    def _best_split(self, x: np.ndarray, g: np.ndarray, h: np.ndarray) -> tuple[int | None, float | None, float | None]:
         best_feature_index, best_threshold, best_gain = None, None, -np.inf
 
         for feature_index in range(x.shape[1]):

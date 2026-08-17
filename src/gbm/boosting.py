@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import numpy as np
-from numpy.typing import ArrayLike
 
 from gbm.tree import DecisionTree
 from gbm.losses import Loss, LogisticLoss, SoftmaxLoss, SquaredError
+
+from numpy.typing import ArrayLike
 
 
 class GradientBoosting:
@@ -44,16 +45,11 @@ class GradientBoosting:
         self._feature_indices: list[list[np.ndarray]] = []
 
 
-    def _make_loss(self, y: np.ndarray) -> Loss:
-        """The loss to boost, chosen once the targets have been seen."""
-        raise NotImplementedError(
-            "GradientBoosting has no loss; use GradientBoostingRegressor or "
-            "GradientBoostingClassifier."
-        )
+    def _create_loss(self, y: np.ndarray) -> Loss:
+        raise NotImplementedError
 
 
     def _encode_target(self, y: np.ndarray) -> np.ndarray:
-        """The targets in the coding the loss expects."""
         return y
 
 
@@ -76,14 +72,11 @@ class GradientBoosting:
                 f"x: {x.shape[0]}, y: {y.shape[0]}."
             )
 
-        for parameter, value in (
-            ("subsample", self.subsample),
-            ("colsample_bytree", self.colsample_bytree),
-        ):
+        for parameter, value in (("subsample", self.subsample), ("colsample_bytree", self.colsample_bytree)):
             if not 0.0 < value <= 1.0:
                 raise ValueError(f"{parameter} must be in (0, 1], got {value}.")
 
-        self._loss = self._make_loss(y)
+        self._loss = self._create_loss(y)
         y = self._encode_target(y)
 
         self._trees = []
@@ -95,9 +88,7 @@ class GradientBoosting:
 
         for _ in range(self.n_estimators):
             gradients, hessians = self._loss.gradients_and_hessians(y, raw)
-
-            # One gradient pass per round, so one row sample per round: every
-            # tree in the round is fitted to the same subsample of rows.
+ 
             row_indices = self._sample(rng, x.shape[0], self.subsample)
 
             round_trees = []
@@ -154,7 +145,7 @@ class GradientBoosting:
 
 class GradientBoostingRegressor(GradientBoosting):
 
-    def _make_loss(self, y: np.ndarray) -> Loss:
+    def _create_loss(self, y: np.ndarray) -> Loss:
         return SquaredError()
 
 
@@ -167,17 +158,11 @@ class GradientBoostingRegressor(GradientBoosting):
         return self._loss.output(raw)
 
 
-class GradientBoostingClassifier(GradientBoosting):
-    """Binary and multiclass, told apart by the labels alone.
-
-    Two classes are boosted as one log-odds score against LogisticLoss, more
-    than two as one score per class against SoftmaxLoss. Nothing below the
-    choice of loss knows which of the two it is running.
-    """
+class GradientBoostingClassifier(GradientBoosting): 
 
     _classes: np.ndarray | None = None
 
-    def _make_loss(self, y: np.ndarray) -> Loss:
+    def _create_loss(self, y: np.ndarray) -> Loss:
         self._classes = np.unique(y)
 
         if self._classes.shape[0] < 2:
@@ -192,7 +177,6 @@ class GradientBoostingClassifier(GradientBoosting):
 
 
     def _encode_target(self, y: np.ndarray) -> np.ndarray:
-        """Labels of any dtype as the class indices 0, 1, ... the losses expect."""
         return np.searchsorted(self._classes, y).astype(float)
 
 
